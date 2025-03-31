@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // اتصال به MongoDB Atlas
-mongoose.connect('mongodb+srv://sasansasanione:aaMXcIuATyRLtTaK@cluster0.fwjxsrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+mongoose.connect('mongodb+srv://render_user:68lxbBn5C1ZukD2K@cluster0.fwjxsrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch(err => console.log('❌ MongoDB Connection Error:', err));
 
