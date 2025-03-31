@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پذیرش</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin-top: 50px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 18px;
+            margin: 10px;
+            width: 250px;
+        }
+
+        #code {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: blue;
+        }
+
+        #qrcode {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>پذیرش</h1>
+
+    <label for="name">نام:</label>
+    <input type="text" id="name" placeholder="نام خود را وارد کنید" required>
+    <br>
+
+    <label for="phone">شماره موبایل:</label>
+    <input type="text" id="phone" placeholder="شماره موبایل خود را وارد کنید" required>
+    <br>
+
+    <button onclick="generateCode()">دریافت کد</button>
+    <p id="code">کد شما نمایش داده می‌شود...</p>
+
+    <!-- نمایش QR Code در اینجا -->
+    <div id="qrcode">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        let userCode = localStorage.getItem("userCode") || null;
+
+        async function generateCode() {
+            let name = document.getElementById('name').value;
+            let phone = document.getElementById('phone').value;
+
+            // بررسی اینکه آیا نام و شماره موبایل وارد شده‌اند
+            if (!name || !phone) {
+                alert("لطفا نام و شماره موبایل را وارد کنید.");
+                return; // جلوگیری از ادامه عملکرد در صورت خالی بودن فیلدها
+            }
+
+            let randomPart = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+            userCode = "USR-" + randomPart;
+            document.getElementById("code").innerText = "کد شما: " + userCode;
+            localStorage.setItem("userCode", userCode);
+
+            // تولید QR Code از کد تولید شده
+            const canvas = document.getElementById("canvas");
+
+            QRCode.toCanvas(canvas, userCode, function (error) {
+                if (error) {
+                    console.error(error);
+                } else {
+                    console.log("QR code generated successfully!");
+                }
+            });
+
+            // ارسال اطلاعات به سرور
+            await fetch('http://localhost:3000/register-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: userCode, name: name, phone: phone })
+            });
+        }
+
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("sw.js");
+        }
+    </script>
+
+</body>
+
+</html>
