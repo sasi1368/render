@@ -96,7 +96,7 @@
             });
 
             // ارسال اطلاعات به سرور
-            await fetch('http://localhost:3000/register-code', {
+            await fetch('https://render-yqu3.onrender.com/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: userCode, name: name, phone: phone })
