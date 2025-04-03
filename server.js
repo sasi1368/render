@@ -91,7 +91,7 @@ const sendFileToTelegram = async (filePath, chatId) => {
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
 // تنظیم Webhook
-const url = 'https://your-server.com/your-path'; // URL وب‌هوک خود را وارد کنید
+const url = 'https://render-yqu3.onrender.com/telegram-webhook'; // URL وب‌هوک خود را وارد کنید
 bot.setWebHook(url);
 
 // پردازش دستور /get
