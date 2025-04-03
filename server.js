@@ -16,7 +16,7 @@ const TELEGRAM_CHAT_ID = "7345437737";
 
 // فعال کردن CORS
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // برای پردازش درخواست‌های JSON
 
 // برای دسترسی به فایل‌های استاتیک مانند index.html
 app.use(express.static(path.join(__dirname, 'public')));
@@ -94,16 +94,23 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 const url = 'https://render-yqu3.onrender.com/telegram-webhook'; // URL وب‌هوک خود را وارد کنید
 bot.setWebHook(url);
 
-// پردازش دستور /get
-bot.onText(/\/get/, async (msg) => {
-    const chatId = msg.chat.id;
-    const filePath = await generateExcelFile();
-    if (filePath) {
-        await sendFileToTelegram(filePath, chatId);
-        bot.sendMessage(chatId, '✅ Excel file has been sent to you!');
-    } else {
-        bot.sendMessage(chatId, '❌ Error generating Excel file.');
+// پردازش درخواست‌های وب‌هوک
+app.post('/telegram-webhook', async (req, res) => {
+    const message = req.body;
+    const chatId = message.chat.id;
+
+    // بررسی وجود پیام و اجرای دستور خاص
+    if (message.text === '/get') {
+        const filePath = await generateExcelFile();
+        if (filePath) {
+            await sendFileToTelegram(filePath, chatId);
+            bot.sendMessage(chatId, '✅ Excel file has been sent to you!');
+        } else {
+            bot.sendMessage(chatId, '❌ Error generating Excel file.');
+        }
     }
+    
+    res.send('ok');
 });
 
 // راه‌اندازی سرور
