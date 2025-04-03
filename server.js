@@ -104,9 +104,9 @@ app.post('/telegram-webhook', async (req, res) => {
         const filePath = await generateExcelFile();
         if (filePath) {
             await sendFileToTelegram(filePath, chatId);
-            bot.sendMessage(chatId, '✅ Excel file has been sent to you!');
+            bot.sendMessage(chatId, '✅ فایل اکسل ارسال شد!');
         } else {
-            bot.sendMessage(chatId, '❌ Error generating Excel file.');
+            bot.sendMessage(chatId, '❌ خطا در تولید فایل اکسل.');
         }
     }
     
