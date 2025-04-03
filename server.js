@@ -4,9 +4,14 @@ const cors = require('cors');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// توکن بات تلگرام خود را در اینجا وارد کنید
+const TELEGRAM_BOT_TOKEN = '8093647306:AAHy1DmFOuSFMfTILffaFKGdFJRgg1nnQ1U';
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // فعال کردن CORS
 app.use(cors());
@@ -132,6 +137,21 @@ app.get('/download-excel', (req, res) => {
             console.error('خطا در ارسال فایل:', err);
         }
     });
+});
+
+// اضافه کردن فرمان /get به بات تلگرام
+bot.onText(/\/get/, async (msg) => {
+    const chatId = msg.chat.id;
+    const filePath = path.join(__dirname, 'codes.xlsx');
+
+    try {
+        // ارسال فایل اکسل به تلگرام
+        await bot.sendDocument(chatId, filePath);
+        bot.sendMessage(chatId, '✅ فایل اکسل به‌روز شده ارسال شد!');
+    } catch (err) {
+        console.error('خطا در ارسال فایل به تلگرام:', err);
+        bot.sendMessage(chatId, '❌ خطا در ارسال فایل اکسل.');
+    }
 });
 
 // سرو کردن فایل‌های استاتیک (مانند index.html)
