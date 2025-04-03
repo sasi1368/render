@@ -107,10 +107,12 @@ app.post('/telegram-webhook', async (req, res) => {
 
         // پردازش دستور خاص
         if (message.text === '/get') {
+            // به‌روزرسانی فایل اکسل
             const filePath = await generateExcelFile();
             if (filePath) {
+                // ارسال فایل به تلگرام
                 await sendFileToTelegram(filePath, chatId);
-                bot.sendMessage(chatId, '✅ فایل اکسل ارسال شد!');
+                bot.sendMessage(chatId, '✅ فایل اکسل به‌روز شده و ارسال شد!');
             } else {
                 bot.sendMessage(chatId, '❌ خطا در تولید فایل اکسل.');
             }
