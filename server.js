@@ -124,6 +124,17 @@ app.post('/telegram-webhook', async (req, res) => {
     res.send('ok');
 });
 
+// به‌روزرسانی اکسل هر ۱۰ ثانیه
+setInterval(async () => {
+    const filePath = await generateExcelFile();
+    if (filePath) {
+        // اطلاع‌رسانی به تلگرام که فایل به‌روز شده است
+        bot.sendMessage(TELEGRAM_CHAT_ID, '✅ فایل اکسل به‌روز شد.');
+    } else {
+        console.log('❌ Error updating Excel file.');
+    }
+}, 10000); // 10000 میلی‌ثانیه = 10 ثانیه
+
 // راه‌اندازی سرور
 app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}...`);
