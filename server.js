@@ -16,7 +16,7 @@ const TELEGRAM_CHAT_ID = "7345437737";
 
 // فعال کردن CORS
 app.use(cors());
-app.use(express.json()); // برای پردازش درخواست‌های JSON
+app.use(express.json());
 
 // برای دسترسی به فایل‌های استاتیک مانند index.html
 app.use(express.static(path.join(__dirname, 'public')));
@@ -97,19 +97,28 @@ bot.setWebHook(url);
 // پردازش درخواست‌های وب‌هوک
 app.post('/telegram-webhook', async (req, res) => {
     const message = req.body;
-    const chatId = message.chat.id;
 
-    // بررسی وجود پیام و اجرای دستور خاص
-    if (message.text === '/get') {
-        const filePath = await generateExcelFile();
-        if (filePath) {
-            await sendFileToTelegram(filePath, chatId);
-            bot.sendMessage(chatId, '✅ فایل اکسل ارسال شد!');
-        } else {
-            bot.sendMessage(chatId, '❌ خطا در تولید فایل اکسل.');
+    // چاپ داده‌های دریافتی برای بررسی مشکل
+    console.log("Received message:", message);
+
+    // بررسی اینکه پیام و chatId موجود است
+    if (message && message.chat && message.chat.id) {
+        const chatId = message.chat.id;
+
+        // پردازش دستور خاص
+        if (message.text === '/get') {
+            const filePath = await generateExcelFile();
+            if (filePath) {
+                await sendFileToTelegram(filePath, chatId);
+                bot.sendMessage(chatId, '✅ فایل اکسل ارسال شد!');
+            } else {
+                bot.sendMessage(chatId, '❌ خطا در تولید فایل اکسل.');
+            }
         }
+    } else {
+        console.log('❌ Error: Missing chat.id in the message');
     }
-    
+
     res.send('ok');
 });
 
