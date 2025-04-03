@@ -102,11 +102,11 @@ app.post('/telegram-webhook', async (req, res) => {
     console.log("Received message:", message);
 
     // بررسی اینکه پیام و chatId موجود است
-    if (message && message.chat && message.chat.id) {
-        const chatId = message.chat.id;
+    if (message && message.message && message.message.chat && message.message.chat.id) {
+        const chatId = message.message.chat.id;
 
         // پردازش دستور خاص
-        if (message.text === '/get') {
+        if (message.message.text === '/get') {
             // به‌روزرسانی فایل اکسل
             const filePath = await generateExcelFile();
             if (filePath) {
