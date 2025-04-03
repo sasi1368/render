@@ -14,13 +14,19 @@ const port = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = "8093647306:AAHy1DmFOuSFMfTILffaFKGdFJRgg1nnQ1U";
 const TELEGRAM_CHAT_ID = "7345437737";
 
+// فعال کردن CORS
 app.use(cors());
 app.use(express.json());
 
+// برای دسترسی به فایل‌های استاتیک مانند index.html
+app.use(express.static(path.join(__dirname, 'public')));
+
+// اتصال به MongoDB
 mongoose.connect('mongodb+srv://render_user:cuNKUrBxUR6ZIgzL@cluster0.fwjxsrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch(err => console.log('❌ MongoDB Connection Error:', err));
 
+// مدل داده‌ها
 const codeSchema = new mongoose.Schema({
     code: String,
     name: String,
@@ -35,6 +41,7 @@ const codeSchema = new mongoose.Schema({
 
 const Code = mongoose.model('Code', codeSchema);
 
+// تولید فایل اکسل
 const generateExcelFile = async () => {
     try {
         const codes = await Code.find({});
@@ -64,6 +71,7 @@ const generateExcelFile = async () => {
     }
 };
 
+// ارسال فایل به تلگرام
 const sendFileToTelegram = async (filePath, chatId) => {
     try {
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
@@ -79,8 +87,14 @@ const sendFileToTelegram = async (filePath, chatId) => {
     }
 };
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+// راه‌اندازی بات تلگرام
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
+// تنظیم Webhook
+const url = 'https://your-server.com/your-path'; // URL وب‌هوک خود را وارد کنید
+bot.setWebHook(url);
+
+// پردازش دستور /get
 bot.onText(/\/get/, async (msg) => {
     const chatId = msg.chat.id;
     const filePath = await generateExcelFile();
@@ -92,26 +106,7 @@ bot.onText(/\/get/, async (msg) => {
     }
 });
 
-setInterval(() => {
-    generateExcelFile();
-}, 10000);
-
-console.log("✅ Excel file updated and running in the background.");
-
-// مسیر برای روت اصلی
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html')); // مسیر فایل HTML شما
-});
-
-app.get('/download-excel', (req, res) => {
-    const filePath = path.join(__dirname, 'codes.xlsx');
-    res.download(filePath, 'codes.xlsx', (err) => {
-        if (err) {
-            console.error('❌ Error sending file:', err);
-        }
-    });
-});
-
+// راه‌اندازی سرور
 app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}...`);
 });
