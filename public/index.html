@@ -66,6 +66,8 @@
         <canvas id="canvas"></canvas>
     </div>
 
+    <p id="statusMessage"></p>
+
     <script>
         let userCode = localStorage.getItem("userCode") || null;
 
@@ -101,6 +103,11 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: userCode, name: name, phone: phone })
             });
+
+            // نمایش وضعیت در صورت بروز خطا یا موفقیت
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.innerText = "کد شما با موفقیت ثبت شد!";
+            setTimeout(() => { statusMessage.innerText = ''; }, 3000); // پاک کردن پیام بعد از ۳ ثانیه
         }
 
         if ("serviceWorker" in navigator) {
