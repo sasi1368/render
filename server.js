@@ -4,29 +4,22 @@ const cors = require('cors');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
-const axios = require('axios');
-const FormData = require('form-data');
-const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const TELEGRAM_BOT_TOKEN = "8093647306:AAHy1DmFOuSFMfTILffaFKGdFJRgg1nnQ1U";
-const TELEGRAM_CHAT_ID = "7345437737";
-
 // فعال کردن CORS
 app.use(cors());
+
+// تبدیل درخواست‌های JSON به داده‌های قابل خواندن
 app.use(express.json());
 
-// برای دسترسی به فایل‌های استاتیک مانند index.html
-app.use(express.static(path.join(__dirname, 'public')));
-
-// اتصال به MongoDB
+// اتصال به MongoDB Atlas
 mongoose.connect('mongodb+srv://render_user:cuNKUrBxUR6ZIgzL@cluster0.fwjxsrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch(err => console.log('❌ MongoDB Connection Error:', err));
 
-// مدل داده‌ها
+// مدل MongoDB
 const codeSchema = new mongoose.Schema({
     code: String,
     name: String,
@@ -41,10 +34,58 @@ const codeSchema = new mongoose.Schema({
 
 const Code = mongoose.model('Code', codeSchema);
 
-// تولید فایل اکسل
+// ثبت کد در دیتابیس
+app.post('/register-code', async (req, res) => {
+    try {
+        const { code, name, lastName, phone } = req.body;
+        const userAgent = req.headers['user-agent'];
+        const ip = req.ip;
+        const mac = '';
+
+        let deviceType = /mobile/i.test(userAgent) ? 'Mobile' : /tablet/i.test(userAgent) ? 'Tablet' : 'Desktop';
+
+        const newCode = new Code({ code, name, lastName, phone, ip, mac, userAgent, deviceType });
+        await newCode.save();
+        res.status(200).json({ message: 'کد با موفقیت ثبت شد' });
+    } catch (err) {
+        console.error('خطا در ثبت کد:', err);
+        res.status(500).json({ message: 'خطا در ثبت کد' });
+    }
+});
+
+// دریافت لیست کدها
+app.get('/codes', async (req, res) => {
+    try {
+        const codes = await Code.find({});
+        res.status(200).json({ codes });
+    } catch (err) {
+        console.error('خطا در دریافت کدها:', err);
+        res.status(500).json({ message: 'خطا در دریافت کدها' });
+    }
+});
+
+// دریافت شانس کاربر
+app.post('/get-user-chance', async (req, res) => {
+    const { code } = req.body;
+    try {
+        const userCode = await Code.findOne({ code });
+        if (userCode) {
+            const chance = Math.random() * 100;
+            res.status(200).json({ chance });
+        } else {
+            res.status(404).json({ message: 'کد پیدا نشد' });
+        }
+    } catch (err) {
+        console.error('خطا در دریافت شانس کاربر:', err);
+        res.status(500).json({ message: 'خطا در دریافت شانس کاربر' });
+    }
+});
+
+// تابع تولید و ذخیره فایل اکسل
 const generateExcelFile = async () => {
     try {
         const codes = await Code.find({});
+
         const data = codes.map((code) => ({
             'کد': code.code,
             'نام': code.name,
@@ -62,80 +103,42 @@ const generateExcelFile = async () => {
         XLSX.utils.book_append_sheet(wb, ws, 'کدها');
 
         const filePath = path.join(__dirname, 'codes.xlsx');
-        XLSX.writeFile(wb, filePath);
 
-        return filePath;
-    } catch (err) {
-        console.error('❌ Error generating Excel file:', err);
-        return null;
-    }
-};
-
-// ارسال فایل به تلگرام
-const sendFileToTelegram = async (filePath, chatId) => {
-    try {
-        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
-        const formData = new FormData();
-        formData.append("chat_id", chatId);
-        formData.append("document", fs.createReadStream(filePath));
-
-        await axios.post(url, formData, {
-            headers: formData.getHeaders(),
-        });
-    } catch (error) {
-        console.error("❌ Error sending Excel file to Telegram:", error);
-    }
-};
-
-// راه‌اندازی بات تلگرام
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
-
-// تنظیم Webhook
-const url = 'https://render-yqu3.onrender.com/telegram-webhook'; // URL وب‌هوک خود را وارد کنید
-bot.setWebHook(url);
-
-// پردازش درخواست‌های وب‌هوک
-app.post('/telegram-webhook', async (req, res) => {
-    const message = req.body;
-
-    // چاپ داده‌های دریافتی برای بررسی مشکل
-    console.log("Received message:", message);
-
-    // بررسی اینکه پیام و chatId موجود است
-    if (message && message.message && message.message.chat && message.message.chat.id) {
-        const chatId = message.message.chat.id;
-
-        // پردازش دستور خاص
-        if (message.message.text === '/get') {
-            // به‌روزرسانی فایل اکسل
-            const filePath = await generateExcelFile();
-            if (filePath) {
-                // ارسال فایل به تلگرام
-                await sendFileToTelegram(filePath, chatId);
-                bot.sendMessage(chatId, '✅ فایل اکسل به‌روز شده و ارسال شد!');
+        // بررسی اینکه فایل اکسل باز نباشد
+        try {
+            XLSX.writeFile(wb, filePath);
+            console.log('✅ Excel file has been updated successfully!');
+        } catch (error) {
+            if (error.code === 'EBUSY' || error.message.includes('EBUSY')) {
+                console.log('❌ Close Excel for update');
             } else {
-                bot.sendMessage(chatId, '❌ خطا در تولید فایل اکسل.');
+                throw error;
             }
         }
-    } else {
-        console.log('❌ Error: Missing chat.id in the message');
-    }
 
-    res.send('ok');
+    } catch (err) {
+        console.error('خطا در استخراج کدها یا ذخیره فایل اکسل:', err);
+    }
+};
+
+// بروزرسانی فایل اکسل هر ۱۰ ثانیه
+setInterval(generateExcelFile, 10000);
+
+// دانلود فایل اکسل
+app.get('/download-excel', (req, res) => {
+    const filePath = path.join(__dirname, 'codes.xlsx');
+    res.download(filePath, 'codes.xlsx', (err) => {
+        if (err) {
+            console.error('خطا در ارسال فایل:', err);
+        }
+    });
 });
 
-// به‌روزرسانی اکسل هر ۱۰ ثانیه
-setInterval(async () => {
-    const filePath = await generateExcelFile();
-    if (filePath) {
-        // اطلاع‌رسانی به تلگرام که فایل به‌روز شده است
-        bot.sendMessage(TELEGRAM_CHAT_ID, '✅ فایل اکسل به‌روز شد.');
-    } else {
-        console.log('❌ Error updating Excel file.');
-    }
-}, 10000); // 10000 میلی‌ثانیه = 10 ثانیه
+// سرو کردن فایل‌های استاتیک (مانند index.html)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // راه‌اندازی سرور
 app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}...`);
+    generateExcelFile();
 });
