@@ -55,22 +55,11 @@ const generateExcelFile = async () => {
         XLSX.utils.book_append_sheet(wb, ws, 'کدها');
 
         const filePath = path.join(__dirname, 'codes.xlsx');
-
-        // نوشتن فایل اکسل با بررسی قفل بودن فایل
-        try {
-            XLSX.writeFile(wb, filePath);
-            console.log("✅ Excel file updated successfully!");
-        } catch (error) {
-            if (error.code === 'EBUSY' || error.message.includes('EBUSY')) {
-                console.log('❌ Close file for update');
-            } else {
-                console.error('❌ Error generating Excel file:', error);
-            }
-        }
+        XLSX.writeFile(wb, filePath);
 
         return filePath;
     } catch (err) {
-        console.error('❌ Error generating Excel file (Data fetching issue):', err);
+        console.error('❌ Error generating Excel file:', err);
         return null;
     }
 };
@@ -85,7 +74,6 @@ const sendFileToTelegram = async (filePath, chatId) => {
         await axios.post(url, formData, {
             headers: formData.getHeaders(),
         });
-        console.log('✅ Excel file sent to Telegram successfully!');
     } catch (error) {
         console.error("❌ Error sending Excel file to Telegram:", error);
     }
@@ -104,10 +92,16 @@ bot.onText(/\/get/, async (msg) => {
     }
 });
 
-// بروزرسانی فایل اکسل هر ۱۰ ثانیه
 setInterval(() => {
     generateExcelFile();
 }, 10000);
+
+console.log("✅ Excel file updated and running in the background.");
+
+// مسیر برای روت اصلی
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html')); // مسیر فایل HTML شما
+});
 
 app.get('/download-excel', (req, res) => {
     const filePath = path.join(__dirname, 'codes.xlsx');
