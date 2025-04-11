@@ -1,87 +1,164 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const bodyParser = require("body-parser");
-const axios = require("axios");
-const path = require("path");
-require("dotenv").config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const path = require('path');
+const XLSX = require('xlsx');
+const fs = require('fs');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+// توکن بات تلگرام خود را در اینجا وارد کنید
+const TELEGRAM_BOT_TOKEN = '8093647306:AAHy1DmFOuSFMfTILffaFKGdFJRgg1nnQ1U';
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+
+// فعال کردن CORS
+app.use(cors());
+
+// تبدیل درخواست‌های JSON به داده‌های قابل خواندن
+app.use(express.json());
+
+// اتصال به MongoDB Atlas
+mongoose.connect('mongodb+srv://render_user:cuNKUrBxUR6ZIgzL@cluster0.fwjxsrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.log('❌ MongoDB Connection Error:', err));
+
+// مدل MongoDB
+const codeSchema = new mongoose.Schema({
+    code: String,
+    name: String,
+    lastName: String,
+    phone: String,
+    ip: String,
+    mac: String,
+    userAgent: String,
+    deviceType: String,
+    timestamp: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model("User", new mongoose.Schema({
-  name: String,
-  phone: String,
-  username: String,
-  password: String,
-}));
+const Code = mongoose.model('Code', codeSchema);
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// ثبت کد در دیتابیس
+app.post('/register-code', async (req, res) => {
+    try {
+        const { code, name, lastName, phone } = req.body;
+        const userAgent = req.headers['user-agent'];
+        const ip = req.ip;
+        const mac = '';
 
-// سرو فایل‌های استاتیک (مثلاً index.html)
-app.use(express.static(path.join(__dirname, "public")));
+        let deviceType = /mobile/i.test(userAgent) ? 'Mobile' : /tablet/i.test(userAgent) ? 'Tablet' : 'Desktop';
 
-app.post("/api/register-request", async (req, res) => {
-  const { name, phone, username, password } = req.body;
-
-  const token = process.env.BOT_TOKEN;
-  const chatId = process.env.ADMIN_CHAT_ID;
-
-  const message = `
-👤 درخواست ثبت‌نام جدید:
-📛 نام: ${name}
-📱 شماره: ${phone}
-👤 نام کاربری: ${username}
-
-برای تأیید، روی دکمه زیر کلیک کنید:
-`;
-
-  const approveUrl = `${process.env.SERVER_URL}/api/approve?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-
-  try {
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
-      chat_id: chatId,
-      text: message,
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "✅ تأیید ثبت‌نام", url: approveUrl }],
-        ],
-      },
-    });
-
-    res.json({ message: "درخواست ثبت‌نام ارسال شد، منتظر تأیید ادمین باشید." });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "خطا در ارسال به تلگرام" });
-  }
-});
-
-app.get("/api/approve", async (req, res) => {
-  const { name, phone, username, password } = req.query;
-
-  try {
-    const existing = await User.findOne({ phone });
-    if (existing) {
-      return res.send("⚠️ این کاربر قبلاً ثبت‌نام کرده است.");
+        const newCode = new Code({ code, name, lastName, phone, ip, mac, userAgent, deviceType });
+        await newCode.save();
+        res.status(200).json({ message: 'کد با موفقیت ثبت شد' });
+    } catch (err) {
+        console.error('خطا در ثبت کد:', err);
+        res.status(500).json({ message: 'خطا در ثبت کد' });
     }
-
-    await User.create({ name, phone, username, password });
-    res.send("✅ کاربر با موفقیت ثبت شد.");
-  } catch (err) {
-    res.status(500).send("❌ خطا در ثبت کاربر.");
-  }
 });
 
-// fallback برای مسیرهای ناشناس (در صورت SPA نبودن لازم نیست)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+// دریافت لیست کدها
+app.get('/codes', async (req, res) => {
+    try {
+        const codes = await Code.find({});
+        res.status(200).json({ codes });
+    } catch (err) {
+        console.error('خطا در دریافت کدها:', err);
+        res.status(500).json({ message: 'خطا در دریافت کدها' });
+    }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// دریافت شانس کاربر
+app.post('/get-user-chance', async (req, res) => {
+    const { code } = req.body;
+    try {
+        const userCode = await Code.findOne({ code });
+        if (userCode) {
+            const chance = Math.random() * 100;
+            res.status(200).json({ chance });
+        } else {
+            res.status(404).json({ message: 'کد پیدا نشد' });
+        }
+    } catch (err) {
+        console.error('خطا در دریافت شانس کاربر:', err);
+        res.status(500).json({ message: 'خطا در دریافت شانس کاربر' });
+    }
+});
+
+// تابع تولید و ذخیره فایل اکسل
+const generateExcelFile = async () => {
+    try {
+        const codes = await Code.find({});
+
+        const data = codes.map((code) => ({
+            'کد': code.code,
+            'نام': code.name,
+            'نام خانوادگی': code.lastName,
+            'شماره تلفن': code.phone,
+            'آی‌پی': code.ip,
+            'مک آدرس': code.mac,
+            'یوزر ایجنت': code.userAgent,
+            'نوع دستگاه': code.deviceType,
+            'زمان ثبت': code.timestamp
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'کدها');
+
+        const filePath = path.join(__dirname, 'codes.xlsx');
+
+        // بررسی اینکه فایل اکسل باز نباشد
+        try {
+            XLSX.writeFile(wb, filePath);
+            console.log('✅ Excel file has been updated successfully!');
+        } catch (error) {
+            if (error.code === 'EBUSY' || error.message.includes('EBUSY')) {
+                console.log('❌ Close Excel for update');
+            } else {
+                throw error;
+            }
+        }
+
+    } catch (err) {
+        console.error('خطا در استخراج کدها یا ذخیره فایل اکسل:', err);
+    }
+};
+
+// بروزرسانی فایل اکسل هر ۱۰ ثانیه
+setInterval(generateExcelFile, 10000);
+
+// دانلود فایل اکسل
+app.get('/download-excel', (req, res) => {
+    const filePath = path.join(__dirname, 'codes.xlsx');
+    res.download(filePath, 'codes.xlsx', (err) => {
+        if (err) {
+            console.error('خطا در ارسال فایل:', err);
+        }
+    });
+});
+
+// اضافه کردن فرمان /get به بات تلگرام
+bot.onText(/\/get/, async (msg) => {
+    const chatId = msg.chat.id;
+    const filePath = path.join(__dirname, 'codes.xlsx');
+
+    try {
+        // ارسال فایل اکسل به تلگرام
+        await bot.sendDocument(chatId, filePath);
+        bot.sendMessage(chatId, '✅ فایل اکسل به‌روز شده ارسال شد!');
+    } catch (err) {
+        console.error('خطا در ارسال فایل به تلگرام:', err);
+        bot.sendMessage(chatId, '❌ خطا در ارسال فایل اکسل.');
+    }
+});
+
+// سرو کردن فایل‌های استاتیک (مانند index.html)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// راه‌اندازی سرور
+app.listen(port, () => {
+    console.log(`🚀 Server running on port ${port}...`);
+    generateExcelFile();
 });
